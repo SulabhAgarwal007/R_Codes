@@ -1,0 +1,74 @@
+
+https://www.analyticsvidhya.com/blog/2016/12/practical-guide-to-implement-machine-learning-with-caret-package-in-r-with-practice-problem/
+https://blog.revolutionanalytics.com/2016/05/using-caret-to-compare-models.html
+https://topepo.github.io/caret/measuring-performance.html
+http://code.env.duke.edu/projects/mget/export/HEAD/MGET/Trunk/PythonPackage/dist/TracOnlineDocumentation/Documentation/ArcGISReference/RandomForestModel.FitToArcGISTable.html
+
+
+#Imputing missing values using KNN.Also centering and scaling numerical columns
+preProcValues <- preProcess(df, method = c("knnImpute","center","scale"))
+
+## creating dummy variables using one hot encoding. Converting every categorical variable to numerical using dummy variables
+dmy = dummyvars("~.", data = df, fullRank = T)
+df = data.frame(predict(dmy, newdata = df))
+
+## Spliting training set into two parts based on outcome: 75% and 25%
+index <- createDataPartition(train_transformed$Loan_Status, p=0.75, list=FALSE)
+
+## Feature selection using rfe in caret. Feature selection is extremely important.
+# rfe - Recursive Feature Elemination
+control <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 3,
+                   verbose = FALSE)
+
+outcomeName<-'Loan_Status' # col to be predicted
+predictors<-names(trainSet)[!names(trainSet) %in% outcomeName]
+Loan_Pred_Profile <- rfe(trainSet[,predictors], trainSet[,outcomeName],rfeControl = control)
+Loan_Pred_Profile # this gives the Top 5 predictors
+
+## To get any model information or list of all models
+names(getModelInfo())
+getModelInfo(model = "ranger")
+
+## To lookup for tuning parameters
+modelLookup(model='gbm')
+
+## Parameter Tuning
+fitControl <- trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 5)
+  
+# If the search space for parameters is not defined, Caret will use 3 random values of each tunable parameter and use the cross-validation results to find the # best set of parameters for that algorithm. Otherwise, there are two more ways to tune parameters:
+
+# One way is to extactly define the values for parameters using tuneGrid
+grid <- expand.grid(n.trees=c(10,20,50,100,500,1000),shrinkage=c(0.01,0.05,0.1,0.5),n.minobsinnode = c(3,5,10),interaction.depth=c(1,5,10))
+
+# training the model
+model_gbm<-train(trainSet[,predictors],trainSet[,outcomeName],method='gbm',trControl=fitControl,tuneGrid=grid)
+
+# Other way is to use tuneLength
+model_gbm<-train(trainSet[,predictors],trainSet[,outcomeName],method='gbm',trControl=fitControl,tuneLength=10)
+
+## Variable Importance: different models can give different outcomes. Hence common columns across multiple models are genuinely important.
+varImp(object=model_gbm)
+plot(varImp(object=model_gbm),main="GBM - Variable Importance")
+
+# Two main uses of variable importance from various models are:
+
+# Predictors that are important for the majority of models represents genuinely important predictors.
+# For ensembling, we should use predictions from models that have significantly different variable importance as their predictions are also expected to be
+# different. Although, one thing that must be make sure is that all of them are sufficiently accurate
+
+## Predictions: type can be 'raw' or 'prob'.
+predictions<-predict.train(object=model_gbm,testSet[,predictors],type="raw")
+table(predictions)
+
+##############
+glimpse()
+str()
+summary()
+view()
+
+
